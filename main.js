@@ -28,12 +28,24 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
 
     // Group by Start Year and calculate averages
     const grouped_years = d3.groups(filtered, d => d['Start Year'])
-        .map(([year, values]) => ({
-            year,
-            avgTotalDeaths: d3.mean(values, v => v["Total Deaths"]),
-            avgNumInjured: d3.mean(values, v => v["No. Injured"]),
-            avgNumHomeless: d3.mean(values, v => v["No. Homeless"])
-        }));
+    .map(([year, values]) => {
+        //Each storm is just one row, so we just need to keep track of total rows per year
+        const numStorms = values.length;
+        console.log(numStorms);
+        const totalDeaths = d3.sum(values, v => +v["Total Deaths"]);
+        const totalInjured = d3.sum(values, v => +v["No. Injured"]);
+        const totalHomeless = d3.sum(values, v => +v["No. Homeless"]);
+        //Needed a little AI help for this return logic to make sure I got all of the values out of this function
+        return {
+            year: +year,
+            numStorms,
+            totalDeaths,
+            //Then down here, divide by total deaths per year
+            avgDeathsPerStorm: totalDeaths / numStorms,
+            avgInjuredPerStorm: totalInjured / numStorms,
+            avgHomelessPerStorm: totalHomeless / numStorms
+        };
+    });
 
     console.log(grouped_years);
     // 3.a: SET SCALES FOR CHART 1
@@ -42,25 +54,49 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
         .range([0, width]);
 
     const y1 = d3.scaleLinear()
-        .domain([0, d3.max(grouped_years, d => d.avgTotalDeaths)])
+        .domain([0, d3.max(grouped_years, d => d.avgDeathsPerStorm)])
         .range([height, 0]);
 
     // 4.a: PLOT DATA FOR CHART 1
     const line1 = d3.line()
         .x(d => x1(d.year))
-        .y(d => y1(d.avgTotalDeaths));
+        .y(d => y1(d.avgDeathsPerStorm));
 
     philippines_trop_storm.append("path")
         .datum(grouped_years)
         .attr("fill", "none")
         .attr("stroke", "purple")
-        .attr("stroke-width", 1)
+        .attr("stroke-width", 1.5)
         .attr("d", line1);
 
     // 5.a: ADD AXES FOR CHART 1
+    // I got kind of mixed up on axis logic and ended up using AI to fix my mistakes, not super sure about the transform stuff
+    const xAxis = d3.axisBottom(x1).tickFormat(d3.format("d")); 
+        philippines_trop_storm.append("g")
+        .attr("transform", `translate(0, ${height})`)
+        .call(xAxis)
+        .append("text")
+        .attr("x", width / 2)
+        .attr("y", 40)
+        .attr("fill", "black")
+        .style("text-anchor", "middle")
+        .text("Year");
+
+    const yAxis = d3.axisLeft(y1);
+        philippines_trop_storm.append("g")
+        .call(yAxis)
+        .append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -height / 2)
+        .attr("y", -50)
+        .attr("dy", "1em")
+        .attr("fill", "black")
+        .style("text-anchor", "middle")
+        .text("Avg Deaths per Storm");
 
 
     // 6.a: ADD LABELS FOR CHART 1
+
 
 
     // 7.a: ADD INTERACTIVITY FOR CHART 1
