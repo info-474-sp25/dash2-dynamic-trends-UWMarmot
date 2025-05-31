@@ -67,6 +67,7 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
         .attr("fill", "none")
         .attr("stroke", "purple")
         .attr("stroke-width", 1.5)
+        .attr("class", "stormLine")
         .attr("d", line1);
 
     // 5.a: ADD AXES FOR CHART 1
@@ -82,10 +83,14 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
         .style("text-anchor", "middle")
         .text("Year");
 
+
+    //Had to redo this Y axis with chatgpt to make it more flexible with changing the active lines
     const yAxis = d3.axisLeft(y1);
-        philippines_trop_storm.append("g")
-        .call(yAxis)
-        .append("text")
+    const yAxisGroup = philippines_trop_storm.append("g")
+        .attr("class", "y-axis")
+        .call(yAxis);
+
+    yAxisGroup.append("text")
         .attr("transform", "rotate(-90)")
         .attr("x", -height / 2)
         .attr("y", -50)
@@ -100,6 +105,54 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
 
 
     // 7.a: ADD INTERACTIVITY FOR CHART 1
+
+    //Found this approach online for choose colors, and it seemed cool
+    const colorMap = {
+        avgDeathsPerStorm: "purple",
+        avgInjuredPerStorm: "gold",
+        avgHomelessPerStorm: "navy"
+    };
+
+    const lineGen = metric => d3.line()
+        .x(d => x1(d.year))
+        .y(d => y1(d[metric]));
+
+    function updateLines(selectedAvgs) {
+        philippines_trop_storm.selectAll(".stormLine").remove();
+
+
+        //Y axis manipulation was helped heavily by AI
+        //Getting the Y axis to scale properly was no small task!
+        y1.domain([0, d3.max(grouped_years, d => 
+        d3.max(selectedAvgs.map(m => d[m])))]);
+        yAxisGroup.transition().duration(500).call(d3.axisLeft(y1));
+
+        selectedAvgs.forEach(metric => {
+            philippines_trop_storm.append("path")
+                .datum(grouped_years)
+                .attr("class", "stormLine")
+                .attr("fill", "none")
+                .attr("stroke", colorMap[metric])
+                .attr("stroke-width", 1.5)
+                .attr("d", lineGen(metric));
+        });
+    }
+
+    //This is to set avgDeaths as our baseline
+    updateLines(["avgDeathsPerStorm"]);
+
+    //Access checkboxes and change alongside them. 
+    d3.selectAll("#avgSelector input").on("change", () => {
+        console.log('got here');
+        const selected = [];
+        d3.selectAll("#avgSelector input:checked").each(function() {
+            selected.push(this.value);
+        });
+        if (selected.length > 0) {
+            updateLines(selected);
+        }
+    });
+
     
 
     // ==========================================
