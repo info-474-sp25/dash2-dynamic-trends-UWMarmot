@@ -26,10 +26,18 @@
             </div> 
         </div>
 
-        <!-- DELETE THE FOLLOWING DIV IF YOU ONLY HAVE 1 WIDGET. -->
-        <div class="item"><!-- Your widget 2 code goes here. -->
-            <!-- Widget 2 title -->
-            <!-- Widget 2 element -->
+
+        <div class="item">
+            <h3>Show Trendlines</h3>
+            <label><input type="checkbox" id="trendline-toggle"></label>
+            <p>Note: Trendlines only appear on line chart</p>
+        </div>
+        <div class="item">
+            <h3>Change Chart Type </h3>
+            <select id="chartType">
+                <option value="line">Line Chart</option>
+                <option value="stackedBar">Stacked Bar Chart</option>
+            </select>
         </div>
     </div>
 
@@ -37,11 +45,7 @@
     <div class="item chart-container">
         <h2>Average Tropical Storm Casualties in the Philippines</h2>
         <svg id="lineChart1" width="900" height="400"></svg> <!-- If you change this ID name, you must change it in main.js too -->
-    </div>
-    <!-- DELETE THE FOLLOWING DIV IF YOU ONLY HAVE 1 CHART. -->
-    <div class="item chart-container">
-        <h2>[Chart 2 Title]</h2>
-        <svg id="lineChart2" width="900" height="400"></svg>
+        <div id="legendContainer" style="margin-top: 10px;"></div>
     </div>
     <script src="main.js"></script>
 </body>

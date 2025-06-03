@@ -93,7 +93,7 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
     yAxisGroup.append("text")
         .attr("transform", "rotate(-90)")
         .attr("x", -height / 2)
-        .attr("y", -50)
+        .attr("y", -70)
         .attr("dy", "1em")
         .attr("fill", "black")
         .style("text-anchor", "middle")
@@ -113,13 +113,44 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
         avgHomelessPerStorm: "navy"
     };
 
+    function updateLegend(selectedAvgs) {
+    const legendContainer = d3.select("#legendContainer");
+    legendContainer.html(""); // Clear previous legend
+        selectedAvgs.forEach(metric => {
+            const item = legendContainer.append("div")
+                .style("display", "flex")
+                .style("align-items", "center")
+                .style("margin-bottom", "4px");
+
+            item.append("div")
+                .style("width", "15px")
+                .style("height", "15px")
+                .style("background-color", colorMap[metric])
+                .style("margin-right", "8px");
+
+            item.append("span").text(metricLabel(metric));
+        });
+    }
+
+    // Make legend labels that are easy to read
+    function metricLabel(key) {
+        const labels = {
+            avgDeathsPerStorm: "Avg Deaths per Storm",
+            avgInjuredPerStorm: "Avg Injured per Storm",
+            avgHomelessPerStorm: "Avg Homeless per Storm"
+        };
+        return labels[key] || key;
+    }
+
     const lineGen = metric => d3.line()
         .x(d => x1(d.year))
         .y(d => y1(d[metric]));
 
     function updateLines(selectedAvgs) {
+        //Clear all the lines
         philippines_trop_storm.selectAll(".stormLine").remove();
-
+        philippines_trop_storm.selectAll(".trendLine").remove();
+        philippines_trop_storm.selectAll(".barGroup").remove();
 
         //Y axis manipulation was helped heavily by AI
         //Getting the Y axis to scale properly was no small task!
@@ -133,45 +164,155 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
                 .attr("class", "stormLine")
                 .attr("fill", "none")
                 .attr("stroke", colorMap[metric])
-                .attr("stroke-width", 1.5)
+                .attr("stroke-width", 2)
                 .attr("d", lineGen(metric));
         });
+
+        //Draw trendlines to match value
+        if (d3.select("#trendline-toggle").property("checked")) {
+            drawTrendlines(selectedAvgs);
+        }
+        updateLegend(selectedAvgs);
     }
 
-    //This is to set avgDeaths as our baseline
-    updateLines(["avgDeathsPerStorm"]);
 
-    //Access checkboxes and change alongside them. 
+
+    //Access checkboxes, choose which lines to use with them.
     d3.selectAll("#avgSelector input").on("change", () => {
-        console.log('got here');
         const selected = [];
         d3.selectAll("#avgSelector input:checked").each(function() {
             selected.push(this.value);
         });
-        if (selected.length > 0) {
+        if (selected.length > 0){
+            updateChartView(selected)
+        } else {
+            philippines_trop_storm.selectAll(".stormLine").remove();
+            philippines_trop_storm.selectAll(".trendLine").remove();
+            philippines_trop_storm.selectAll(".barGroup").remove();
+            updateLegend([]);
+        };
+    });
+
+    //Second interactive element, simple trendline!
+
+    function drawTrendlines(selectedAvgs) {
+        philippines_trop_storm.selectAll(".trendLine").remove();
+
+        selectedAvgs.forEach(metric => {
+            const metricData = grouped_years.map(d => ({
+                year: d.year,
+                value: d[metric]
+            }));
+
+            const trendlineData = linearRegression(metricData);
+
+            philippines_trop_storm.append("path")
+                .datum(trendlineData)
+                .attr("class", "trendLine")
+                .attr("fill", "none")
+                .attr("stroke", colorMap[metric])
+                .attr("stroke-dasharray", "4 4")
+                .attr("stroke-width", 1.5)
+                .attr("d", d3.line()
+                    .x(d => x1(d.year))
+                    .y(d => y1(d.value))
+                );
+        });
+    }
+
+    d3.select("#trendline-toggle").on("change", () => {
+        const selected = [];
+        d3.selectAll("#avgSelector input:checked").each(function() {
+            selected.push(this.value);
+        });
+        const chartType = d3.select("#chartType").property("value");
+        if (chartType == "line") {
             updateLines(selected);
         }
     });
 
-    
+    function linearRegression(data) {
+        const n = data.length;
+        const sumX = d3.sum(data, d => d.year);
+        const sumY = d3.sum(data, d => d.value);
+        const sumXY = d3.sum(data, d => d.year * d.value);
+        const sumX2 = d3.sum(data, d => d.year * d.year);
 
-    // ==========================================
-    //         CHART 2 (if applicable)
-    // ==========================================
+        const m = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+        const b = (sumY - m * sumX) / n;
 
-    // 3.b: SET SCALES FOR CHART 2
-
-
-    // 4.b: PLOT DATA FOR CHART 2
-
-
-    // 5.b: ADD AXES FOR CHART 
+        return data.map(d => ({
+            year: d.year,
+            value: m * d.year + b
+         }));  
+    }
 
 
-    // 6.b: ADD LABELS FOR CHART 2
+    //Suprise widget 3 to pivot to stacked bar chart!
+    //This one was done mostly with AI, because it was such a big departure from my original graph, and it
+    //was not as easy to change as I had hoped. 
+    function drawStackedBarChart(selectedAvgs) {
+        philippines_trop_storm.selectAll(".stormLine").remove();
+        philippines_trop_storm.selectAll(".trendLine").remove();
+        philippines_trop_storm.selectAll(".barGroup").remove();
+
+        // Reshape data
+        const stack = d3.stack()
+            .keys(selectedAvgs)
+            .order(d3.stackOrderNone)
+            .offset(d3.stackOffsetNone);
+
+        const series = stack(grouped_years);
+
+        // Update y scale
+        y1.domain([
+            0,
+            d3.max(grouped_years, d => 
+                d3.sum(selectedAvgs.map(metric => d[metric]))
+            )
+        ]);
+        yAxisGroup.transition().duration(500).call(d3.axisLeft(y1));
+
+        // Draw bars
+        const barGroups = philippines_trop_storm.selectAll(".barGroup")
+            .data(series)
+            .enter()
+            .append("g")
+            .attr("class", "barGroup")
+            .attr("fill", d => colorMap[d.key]);
+
+        barGroups.selectAll("rect")
+            .data(d => d)
+            .enter()
+            .append("rect")
+            .attr("x", d => x1(d.data.year) - 10)
+            .attr("y", d => y1(d[1]))
+            .attr("height", d => y1(d[0]) - y1(d[1]))
+            .attr("width", 20);
+    }
+
+    //Used to change chart types
+    function updateChartView(selectedAvgs) {
+        const chartType = d3.select("#chartType").property("value");
+
+        if (chartType === "line") {
+            updateLines(selectedAvgs);
+        } else if (chartType === "stackedBar") {
+            drawStackedBarChart(selectedAvgs);
+            updateLegend(selectedAvgs);
+        }
+    }
+
+    d3.select("#chartType").on("change", () => {
+        const selected = [];
+        d3.selectAll("#avgSelector input:checked").each(function() {
+            selected.push(this.value);
+        });
+        if (selected.length > 0) updateChartView(selected);
+    });
 
 
-    // 7.b: ADD INTERACTIVITY FOR CHART 2
-
+    updateLines(["avgDeathsPerStorm"]);
+    updateChartView(["avgDeathsPerStorm"]);
 
 });
