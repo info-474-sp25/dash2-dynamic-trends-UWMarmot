@@ -285,7 +285,7 @@ d3.csv("EmdatTropicalStorms.csv").then(data => {
             .data(d => d)
             .enter()
             .append("rect")
-            .attr("x", d => x1(d.data.year) - 10)
+            .attr("x", d => x1(d.data.year) +5)
             .attr("y", d => y1(d[1]))
             .attr("height", d => y1(d[0]) - y1(d[1]))
             .attr("width", 20);
